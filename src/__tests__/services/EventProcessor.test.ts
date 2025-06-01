@@ -3,8 +3,6 @@ import SubscriptionModel from "../../models/SubscriptionModel";
 import { EventProcessorService } from "../../services/EventProcessor";
 import { WebhookClient } from "../../services/WebhookClient";
 import { EventJobPayload } from "../../types/event";
-import { Partner } from "../../types/partner";
-import { PopulatedSubscription } from "../../types/subscriptions";
 import { logger } from "../../utils/loggerUtils";
 
 type PartnerMock = {
@@ -112,9 +110,6 @@ describe('EventProcessorService', () => {
       mockWebhookClient.sendWebhook.mockResolvedValue({
         success: true,
         statusCode: 200,
-        partnerName: 'Awesome Reviews',
-        eventId: 'event-123',
-        attempt: 1
       });
 
       await eventProcessorService.processEvent(mockPayload);
@@ -167,16 +162,10 @@ describe('EventProcessorService', () => {
         .mockResolvedValueOnce({
           success: true,
           statusCode: 200,
-          partnerName: 'Awesome Reviews',
-          eventId: 'event-123',
-          attempt: 1
         })
         .mockResolvedValueOnce({
           success: false,
           statusCode: 500,
-          partnerName: 'Shopping Analytics',
-          eventId: 'event-123',
-          attempt: 3,
           error: 'Server error'
         });
 
@@ -211,9 +200,6 @@ describe('EventProcessorService', () => {
       mockWebhookClient.sendWebhook.mockResolvedValue({
         success: true,
         statusCode: 200,
-        partnerName: 'Awesome Reviews',
-        eventId: 'event-123',
-        attempt: 1
       });
 
       await eventProcessorService.processEvent(mockPayload);
@@ -244,9 +230,6 @@ describe('EventProcessorService', () => {
       mockWebhookClient.sendWebhook.mockResolvedValue({
         success: true,
         statusCode: 200,
-        partnerName: 'Awesome Reviews',
-        eventId: 'event-123',
-        attempt: 1
       });
 
       await eventProcessorService.processEvent(mockPayload);

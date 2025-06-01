@@ -54,16 +54,12 @@ export class EventProcessorService {
           continue;
         }
 
-        const {
-          success,
-          statusCode,
-          error
-        } = await this.webhookClient.sendWebhook(partnerId, eventType, data, eventId);
+        const result = await this.webhookClient.sendWebhook(partnerId, eventType, data, eventId);
 
-        if (!success) {
+        if (!result.success) {
           allPartnerDeliveriesSuccessfulOrNonCritical = false;
           if (!firstCriticalFailureMessage) {
-            firstCriticalFailureMessage = `Delivery to partner ${partnerId.name} failed: ${error || `Status ${statusCode}`}`;
+            firstCriticalFailureMessage = `Delivery to partner ${partnerId.name} failed: ${result.error || `Status ${result.statusCode}`}`;
           }
         }
       }

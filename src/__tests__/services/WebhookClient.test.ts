@@ -105,9 +105,6 @@ describe('WebhookClient', () => {
       expect(result).toEqual({
         success: true,
         statusCode: 200,
-        partnerName: 'Test Partner',
-        eventId: 'event-123',
-        attempt: 1,
       });
     });
 
@@ -128,9 +125,6 @@ describe('WebhookClient', () => {
       expect(result).toEqual({
         success: true,
         statusCode: 200,
-        partnerName: 'Test Partner',
-        eventId: 'event-123',
-        attempt: 2,
       });
     });
 
@@ -156,9 +150,6 @@ describe('WebhookClient', () => {
       expect(result).toEqual({
         success: false,
         statusCode: 500,
-        partnerName: 'Test Partner',
-        eventId: 'event-123',
-        attempt: webhookConfig.maxAttempts,
         error: expect.stringContaining('Request failed with status code 500'),
       });
     });
@@ -180,9 +171,6 @@ describe('WebhookClient', () => {
       expect(result).toEqual({
         success: false,
         statusCode: 500,
-        partnerName: 'Test Partner',
-        eventId: 'event-123',
-        attempt: webhookConfig.maxAttempts,
         error: expect.stringContaining(`Request timed out after ${webhookConfig.requestTimeoutMs}ms`),
       });
     });
@@ -202,9 +190,6 @@ describe('WebhookClient', () => {
       expect(result).toEqual({
         success: false,
         statusCode: 429,
-        partnerName: 'Test Partner',
-        eventId: 'event-123',
-        attempt: webhookConfig.maxAttempts,
         error: 'Failed with status code 429',
       });
     });
@@ -226,9 +211,6 @@ describe('WebhookClient', () => {
       expect(result).toEqual({
         success: false,
         statusCode: 500,
-        partnerName: 'Test Partner',
-        eventId: 'event-123',
-        attempt: webhookConfig.maxAttempts,
         error: 'Something unexpected happened',
       });
     });

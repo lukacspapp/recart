@@ -18,12 +18,13 @@ export interface WebhookPayload {
   data: EventPayloadData;
 }
 
-export interface WebhookSendResult {
-  success: boolean;
-  statusCode?: number;
-  partnerName: string;
-  eventId: string;
-  attempt: number;
-  error?: string;
+export type WebhookDeliveryResult = WebhookSuccessResult | WebhookErrorResult;
+export interface WebhookSuccessResult {
+  success: true;
+  statusCode: number;
 }
-
+export interface WebhookErrorResult {
+  success: false;
+  statusCode?: number;
+  error: string;
+}

@@ -1,7 +1,7 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
 import { generateSignature } from '../utils/generateUniqueId';
 import { EventPayloadData } from '../types/event';
-import { HeaderMetaData, WebhookClientConfig, WebhookSendResult } from '../types/webhookClient';
+import { HeaderMetaData, WebhookClientConfig, WebhookDeliveryResult, WebhookErrorResult, WebhookSuccessResult } from '../types/webhookClient';
 import { Partner } from '../types/partner';
 
 export class WebhookClient {
@@ -16,7 +16,7 @@ export class WebhookClient {
     this.axios = axios;
   }
 
-  public async sendWebhook(partner: Partner, eventType: string, data: EventPayloadData, eventId: string): Promise<WebhookSendResult> {
+  public async sendWebhook(partner: Partner, eventType: string, data: EventPayloadData, eventId: string): Promise<WebhookDeliveryResult> {
     let attempts = 0;
     const payload = { eventId, eventType, data };
     const requestBody = JSON.stringify(payload);
@@ -35,18 +35,12 @@ export class WebhookClient {
         if (status >= 200 && status < 300) {
           return WebhookClient.createSuccessResponse(
             status,
-            partner.name,
-            eventId,
-            attempts
           );
         }
 
         if (attempts >= this.config.maxAttempts) {
           return WebhookClient.createErrorResponse(
             status,
-            partner.name,
-            eventId,
-            attempts,
             `Failed with status code ${status}`
           );
         }
@@ -56,9 +50,6 @@ export class WebhookClient {
         if (attempts >= this.config.maxAttempts) {
           return WebhookClient.createErrorResponse(
             errorDetails.statusCode || 500,
-            partner.name,
-            eventId,
-            attempts,
             errorDetails.message
           );
         }
@@ -69,9 +60,6 @@ export class WebhookClient {
 
     return {
       success: false,
-      partnerName: partner.name,
-      eventId,
-      attempt: attempts,
       error: `Max retries reached for partner webhook.`
     };
   }
@@ -85,23 +73,17 @@ export class WebhookClient {
     return this.axios.post(url, body, requestConfig);
   }
 
-  private static createSuccessResponse(statusCode: number, partnerName: string, eventId: string, attempts: number): WebhookSendResult {
+  private static createSuccessResponse(statusCode: number): WebhookSuccessResult {
     return {
       success: true,
       statusCode,
-      partnerName,
-      eventId,
-      attempt: attempts
     }
   }
 
-  private static createErrorResponse(statusCode: number, partnerName: string, eventId: string, attempts: number, error: string): WebhookSendResult {
+  private static createErrorResponse(statusCode: number, error: string): WebhookErrorResult {
     return {
       success: false,
       statusCode,
-      partnerName,
-      eventId,
-      attempt: attempts,
       error,
     };
   }
