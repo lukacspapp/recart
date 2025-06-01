@@ -1,0 +1,45 @@
+{
+  "info": {
+    "name": "Webhook Service API",
+    "description": "Collection for testing the Webhook Service API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Submit Multiple Events",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "[\n  {\n    \"eventType\": \"order.created\",\n    \"data\": {\n      \"orderId\": \"ord_12345\",\n      \"value\": 99.99\n    }\n  },\n  {\n    \"eventType\": \"order.fulfilled\",\n    \"data\": {\n      \"orderId\": \"ord_12345\",\n      \"value\": 99.99\n    }\n  },\n  {\n    \"eventType\": \"customer.created\",\n    \"data\": {\n      \"orderId\": \"cust_67890\",\n      \"value\": 0\n    }\n  }\n]"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/events",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "events"
+          ]
+        },
+        "description": "Submit multiple events in a single batch"
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}
