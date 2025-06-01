@@ -7,25 +7,25 @@ db.createCollection('subscriptions');
 const partners = [
   {
     name: "Awesome Reviews",
-    webhookUrl: "https://httpbin.org/post", // Returns 200 OK with request details
+    webhookUrl: "https://httpbin.org/post",
     secretKey: "awesome-reviews-secret-123",
     isActive: true
   },
   {
     name: "Shopping Analytics",
-    webhookUrl: "https://postman-echo.com/post", // Different service, also returns request details
+    webhookUrl: "https://postman-echo.com/post",
     secretKey: "shopping-analytics-key-456",
     isActive: true
   },
   {
     name: "Inactive Partner",
-    webhookUrl: "https://httpbin.org/status/429", // Will always return 429 Too Many Requests (good for testing error handling)
+    webhookUrl: "https://httpbin.org/status/429",
     secretKey: "inactive-partner-key-789",
     isActive: false
   },
   {
     name: "Marketing Tools",
-    webhookUrl: "https://httpbin.org/delay/1", // 1 second delay (good for testing timeouts)
+    webhookUrl: "https://httpbin.org/delay/1",
     secretKey: "marketing-tools-key-abc",
     isActive: true
   }
@@ -33,13 +33,11 @@ const partners = [
 
 db.partners.insertMany(partners);
 
-// Get the ObjectIds of inserted partners
 const awesomeReviews = db.partners.findOne({ name: "Awesome Reviews" });
 const shoppingAnalytics = db.partners.findOne({ name: "Shopping Analytics" });
 const inactivePartner = db.partners.findOne({ name: "Inactive Partner" });
 const marketingTools = db.partners.findOne({ name: "Marketing Tools" });
 
-// Insert subscription data
 const subscriptions = [
   {
     partnerId: awesomeReviews._id,

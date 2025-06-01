@@ -1,4 +1,3 @@
-// utils/axiosInstanceManager.ts
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { logger } from './loggerUtils';
 

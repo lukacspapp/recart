@@ -1,36 +1,22 @@
-import { Queue, Worker } from "bullmq";
+import { Worker } from "bullmq";
 import { logger } from "../loggerUtils";
 
-export async function closeBullMqQueue(queue: Queue | undefined, queueName: string = 'BullMQ Queue'): Promise<void> {
-  if (queue) {
-    try {
-      logger.info(`Attempting to close ${queueName} (name: ${queue.name})...`);
-
-      await queue.close();
-      logger.info(`${queueName} (name: ${queue.name}) closed successfully.`);
-    } catch (queueCloseError) {
-
-      logger.error(`Error closing ${queueName} (name: ${queue.name}):`, queueCloseError);
-    }
-  } else {
-
-    logger.info(`${queueName} instance not provided or already handled.`);
+export async function closeWorker(
+  worker: Worker | undefined,
+): Promise<void> {
+  if (!worker) {
+    logger.info(`worker not provided or already closed.`);
+    return;
   }
-}
 
-export async function closeBullMqWorker(worker: Worker | undefined, workerName: string = 'BullMQ Worker'): Promise<void> {
-  if (worker) {
-    try {
-      logger.info(`Attempting to close ${workerName} for queue ${worker.name}...`);
-
-      await worker.close();
-      logger.info(`${workerName} for queue ${worker.name} closed successfully.`);
-    } catch (workerCloseError) {
-
-      logger.error(`Error closing ${workerName} for queue ${worker.name}:`, workerCloseError);
-    }
-  } else {
-
-    logger.info(`${workerName} instance not provided or already handled.`);
+  try {
+    logger.info('Closing worker in drain mode');
+    await worker.close(true);
+    logger.info('worker closed successfully.');
+  } catch (workerCloseError) {
+    logger.error(`Error closing worker:`, workerCloseError instanceof Error
+      ? workerCloseError.message
+      : String(workerCloseError));
+    throw workerCloseError;
   }
 }

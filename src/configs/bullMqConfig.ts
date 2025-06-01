@@ -9,15 +9,15 @@ export const defaultJobOptions = {
   attempts: 3,
   backoff: {
     type: 'exponential',
-    delay: 5000, // 5s, 10s, 20s
-  } as const, // Ensures type safety for backoff strategy
+    delay: 5000,
+  } as const,
   removeOnComplete: {
-    count: 1000, // Keep last 1000 completed jobs
-    age: 24 * 60 * 60, // Keep for 24 hours
+    count: 1000,
+    age: 24 * 60 * 60,
   },
   removeOnFail: {
-    count: 5000, // Keep last 5000 failed jobs
-    age: 7 * 24 * 60 * 60, // Keep for 7 days
+    count: 5000,
+    age: 7 * 24 * 60 * 60,
   },
 };
 

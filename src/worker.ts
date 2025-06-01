@@ -3,7 +3,7 @@ import { EventProcessorService } from './services/EventProcessor';
 import { WEBHOOK_JOB_QUEUE_NAME, workerOptions } from './configs/bullMqConfig';
 import dotenv from 'dotenv';
 import { connectToMongoDb } from './utils/mongoUtils';
-import { shutdown } from './utils/shutDownUtils';
+import { createGracefulShutdown } from './utils/shutDownUtils';
 import './models/PartnerModels';
 import './models/SubscriptionModel';
 import { EventJobPayload } from './types/event';
@@ -54,8 +54,10 @@ async function startWorker(): Promise<void> {
     logger.error(`Worker error: ${err.message}`);
   });
 
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+  const gracefulShutdown = createGracefulShutdown(worker);
+
+  process.on('SIGTERM', gracefulShutdown);
+  process.on('SIGINT', gracefulShutdown);
 }
 
 startWorker().catch((err) => {

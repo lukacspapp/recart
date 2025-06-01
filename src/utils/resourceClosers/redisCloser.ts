@@ -1,19 +1,21 @@
 import Redis from "ioredis";
 import { logger } from "../loggerUtils";
 
-export async function closeRedisClient(redisClient: Redis | undefined, clientName: string = 'Redis'): Promise<void> {
-  if (redisClient?.status === 'ready' || redisClient?.status === 'connecting' || redisClient?.status === 'connect') {
-    try {
-      logger.info(`Attempting to close ${clientName} client connection...`);
+export async function closeRedisClient(redisClient: Redis | undefined): Promise<void> {
+  const activeStates = ['ready', 'connecting', 'connect'];
 
-      await redisClient.quit();
-      logger.info(`${clientName} client connection closed successfully.`);
-    } catch (redisCloseError) {
+  if (!redisClient || !activeStates.includes(redisClient.status)) {
+    logger.info('Redis client already closed, not connected, or not provided.');
+    return;
+  }
 
-      logger.error(`Error closing ${clientName} client:`, redisCloseError);
-    }
-  } else {
+  try {
+    logger.info('Attempting to close Redis client connection...');
 
-    logger.info(`${clientName} client already closed, not connected, or not provided.`);
+    await redisClient.quit();
+    logger.info('Redis client connection closed successfully.');
+  } catch (redisCloseError) {
+
+    logger.error(`Error closing Redis client:`, redisCloseError);
   }
 }

@@ -10,7 +10,7 @@ services:
       - mongo_data:/data/db
       - ./mongoInit.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     environment:
-      - MONGO_INITDB_DATABASE=recart_webhook_db
+      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE}
 
   redis:
     image: redis:7.0-alpine
@@ -32,11 +32,8 @@ services:
     depends_on:
       - mongo
       - redis
-    environment:
-      - NODE_ENV=development
-      - MONGO_URI=mongodb://mongo:27017/recart_webhook_db
-      - REDIS_URL=redis://redis:6379
-      - PORT=${PORT:-3000}
+    env_file:
+      - .env
 
   worker:
     image: node:24-slim
@@ -48,11 +45,8 @@ services:
     depends_on:
       - mongo
       - redis
-    environment:
-      - NODE_ENV=development
-      - MONGO_URI=mongodb://mongo:27017/recart_webhook_db
-      - REDIS_URL=redis://redis:6379
-      - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-5}
+    env_file:
+      - .env
     restart: unless-stopped
 
 volumes:
