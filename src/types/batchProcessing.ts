@@ -12,16 +12,15 @@ export interface EventProcessingFailedResult {
   eventType: string;
   status: 'failed';
   error: string;
-};
+}
+
+type EventProcessingResult =
+  | EventProcessingSuccessResult
+  | EventProcessingFailedResult;
 
 export interface BatchProcessingResult {
   message: string;
-  results: Array<{
-    eventId: string;
-    eventType: string;
-    status: 'success' | 'failed';
-    error?: string;
-  }>;
+  results: EventProcessingResult[];
   hasErrors: boolean;
 }
 

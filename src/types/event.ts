@@ -4,11 +4,6 @@ import { EventBatchRequestSchema } from "../schema/EventRequestSchema";
 
 export type EventBatch = Static<typeof EventBatchRequestSchema>;
 
-export interface EventRequestData {
-  orderId: string;
-  value: number;
-}
-
 export interface EventPayloadData {
   orderId: string;
   value: number;
@@ -19,11 +14,6 @@ export interface EventJobPayload {
   eventType: string;
   data: EventPayloadData;
   timestamp: string;
-}
-
-export interface SuccessfulEventResponse {
-  message: string;
-  events: string[];
 }
 
 

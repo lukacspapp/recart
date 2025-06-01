@@ -12,12 +12,6 @@ export interface HeaderMetaData {
   signature: string;
 }
 
-export interface WebhookPayload {
-  eventId: string;
-  eventType: string;
-  data: EventPayloadData;
-}
-
 export type WebhookDeliveryResult = WebhookSuccessResult | WebhookErrorResult;
 export interface WebhookSuccessResult {
   success: true;

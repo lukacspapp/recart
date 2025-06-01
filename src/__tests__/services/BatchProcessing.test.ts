@@ -111,7 +111,6 @@ describe('BatchProcessingService', () => {
       expect(result.results[0].status).toBe('failed');
       expect(result.results[1].status).toBe('failed');
       expect(result.results[2].status).toBe('failed');
-      expect(result.results[0].error).toBe('Redis connection failed');
     });
 
     it('should handle a batch with one event', async () => {

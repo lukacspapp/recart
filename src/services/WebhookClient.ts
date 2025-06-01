@@ -1,4 +1,4 @@
-import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { generateSignature } from '../utils/generateUniqueId';
 import { EventPayloadData } from '../types/event';
 import { HeaderMetaData, WebhookClientConfig, WebhookDeliveryResult, WebhookErrorResult, WebhookSuccessResult } from '../types/webhookClient';
