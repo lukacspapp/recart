@@ -1,0 +1,10 @@
+# Node artifact files
+
+node_modules/
+dist/
+
+# VS Code
+.vscode/
+
+# env
+.env.dev
