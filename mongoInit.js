@@ -9,24 +9,28 @@ const partners = [
     name: "Awesome Reviews",
     webhookUrl: "https://httpbin.org/post",
     secretKey: "awesome-reviews-secret-123",
+    apiKey: "awesome-reviews-api-key-123",
     isActive: true
   },
   {
     name: "Shopping Analytics",
     webhookUrl: "https://postman-echo.com/post",
     secretKey: "shopping-analytics-key-456",
+    apiKey: "shopping-analytics-api-key-456",
     isActive: true
   },
   {
     name: "Inactive Partner",
     webhookUrl: "https://httpbin.org/status/429",
     secretKey: "inactive-partner-key-789",
+    apiKey: "inactive-partner-api-key-789",
     isActive: false
   },
   {
     name: "Marketing Tools",
     webhookUrl: "https://httpbin.org/delay/1",
     secretKey: "marketing-tools-key-abc",
+    apiKey: "marketing-tools-api-key-abc",
     isActive: true
   }
 ];

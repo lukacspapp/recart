@@ -5,6 +5,7 @@ const PartnerSchema = new Schema<Partner>(
   {
     name: { type: String, required: true, trim: true, index: true },
     webhookUrl: { type: String, required: true, trim: true },
+    apiKey: { type: String, required: true, unique: true },
     secretKey: { type: String, required: true },
     isActive: { type: Boolean, default: true },
   },
