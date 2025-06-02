@@ -83,6 +83,24 @@ docker-compose up
 docker-compose up -d
 ```
 
+## Testing
+
+The project includes a test suite built with Jest. These tests verify the functionality of key components in the system.
+
+### Running Tests
+
+To run all tests:
+
+```bash
+npm test
+```
+### Running Tests with Coverage
+To run tests with coverage reporting:
+
+```bash
+npm run test:coverage
+```
+
 ## Testing the API
 
 ### Postman Collection
