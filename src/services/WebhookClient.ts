@@ -7,6 +7,7 @@ import { Partner } from '../types/partner';
 import { IWebhookClient } from '../types/interfaces/IWebhookClient';
 import { IHttpClient } from '../types/interfaces/IHttpClient';
 import { TYPES } from '../types/inversify';
+import { logger } from '../utils/loggerUtils';
 
 @injectable()
 export class WebhookClient implements IWebhookClient {
@@ -31,12 +32,18 @@ export class WebhookClient implements IWebhookClient {
       attempts++;
 
       try {
+        const startTime = performance.now();
+
         const { status } = await this.httpClient.createRequestWithWebhookHeaders(
           partner.webhookUrl,
           requestBody,
           metadata,
           this.config.requestTimeoutMs
         );
+
+        const latency = performance.now() - startTime;
+
+        logger.info(`🚀 Webhook latency for partner ${partner.name}: ${latency}ms (status: ${status})`);
 
         if (status >= 200 && status < 300) {
           return WebhookClient.createSuccessResponse(status);
