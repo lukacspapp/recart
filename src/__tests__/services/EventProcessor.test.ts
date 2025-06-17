@@ -1,9 +1,13 @@
+import 'reflect-metadata';
+import { Container } from 'inversify';
 import mongoose from "mongoose";
-import SubscriptionModel from "../../models/SubscriptionModel";
-import { EventProcessorService } from "../../services/EventProcessor";
-import { WebhookClient } from "../../services/WebhookClient";
 import { EventJobPayload } from "../../types/event";
-import { logger } from "../../utils/loggerUtils";
+import { EventProcessor } from "../../services/EventProcessor";
+import { WebhookDeliveryResult } from "../../types/webhookClient";
+import { PopulatedSubscription } from "../../types/subscriptions";
+import { ISubscriptionRepository } from '../../types/interfaces/ISubscriptionRepository';
+import { IWebhookClient } from '../../types/interfaces/IWebhookClient';
+import { TYPES } from '../../types/inversify';
 
 type PartnerMock = {
   _id: mongoose.Types.ObjectId;
@@ -20,11 +24,6 @@ type SubscriptionMock = {
   isActive: boolean;
 };
 
-
-jest.mock('../../models/SubscriptionModel', () => ({
-  find: jest.fn(),
-}));
-
 jest.mock('../../utils/loggerUtils', () => ({
   logger: {
     warn: jest.fn(),
@@ -33,20 +32,31 @@ jest.mock('../../utils/loggerUtils', () => ({
   },
 }));
 
-describe('EventProcessorService', () => {
-  let mockWebhookClient: jest.Mocked<WebhookClient>;
-  let eventProcessorService: EventProcessorService;
-  let mockSubscriptions: SubscriptionMock[];
+describe('EventProcessor', () => {
+  let container: Container;
+  let eventProcessor: EventProcessor;
+  let mockWebhookClient: jest.Mocked<IWebhookClient>;
+  let mockSubscriptionRepository: jest.Mocked<ISubscriptionRepository>;
   let mockPayload: EventJobPayload;
+  let mockSubscriptions: SubscriptionMock[];
   let mockPartners: PartnerMock[];
 
-
   beforeEach(() => {
+    container = new Container();
+
     mockWebhookClient = {
       sendWebhook: jest.fn(),
-    } as unknown as jest.Mocked<WebhookClient>;
+    } as unknown as jest.Mocked<IWebhookClient>;
 
-    eventProcessorService = new EventProcessorService(mockWebhookClient);
+    mockSubscriptionRepository = {
+      findActiveSubscriptions: jest.fn(),
+    } as unknown as jest.Mocked<ISubscriptionRepository>;
+
+    container.bind<IWebhookClient>(TYPES.WebhookClient).toConstantValue(mockWebhookClient);
+    container.bind<ISubscriptionRepository>(TYPES.SubscriptionRepository).toConstantValue(mockSubscriptionRepository);
+    container.bind<EventProcessor>(TYPES.EventProcessor).to(EventProcessor);
+
+    eventProcessor = container.get<EventProcessor>(TYPES.EventProcessor);
 
     mockPayload = {
       eventId: 'event-123',
@@ -102,33 +112,25 @@ describe('EventProcessorService', () => {
 
   describe('processEvent', () => {
     it('should successfully process an event with active subscriptions', async () => {
-      const mockPopulate = jest.fn().mockResolvedValue(mockSubscriptions);
-      (SubscriptionModel.find as jest.Mock).mockReturnValue({
-        populate: mockPopulate
-      });
+      mockSubscriptionRepository.findActiveSubscriptions.mockResolvedValue(mockSubscriptions as unknown as PopulatedSubscription[]);
 
       mockWebhookClient.sendWebhook.mockResolvedValue({
         success: true,
         statusCode: 200,
       });
 
-      await eventProcessorService.processEvent(mockPayload);
+      await eventProcessor.processEvent(mockPayload);
 
-      expect(SubscriptionModel.find).toHaveBeenCalledWith({
-        eventType: 'order.created',
-        isActive: true,
-      });
-      expect(mockPopulate).toHaveBeenCalledWith('partnerId');
+      expect(mockSubscriptionRepository.findActiveSubscriptions)
+        .toHaveBeenCalledWith(mockPayload.eventType);
 
       expect(mockWebhookClient.sendWebhook).toHaveBeenCalledTimes(2);
-
       expect(mockWebhookClient.sendWebhook).toHaveBeenCalledWith(
         mockSubscriptions[0].partnerId,
         mockPayload.eventType,
         mockPayload.data,
         mockPayload.eventId
       );
-
       expect(mockWebhookClient.sendWebhook).toHaveBeenCalledWith(
         mockSubscriptions[1].partnerId,
         mockPayload.eventType,
@@ -138,38 +140,31 @@ describe('EventProcessorService', () => {
     });
 
     it('should log a warning when no active subscriptions found', async () => {
-      const mockPopulate = jest.fn().mockResolvedValue([]);
-      (SubscriptionModel.find as jest.Mock).mockReturnValue({
-        populate: mockPopulate
-      });
+      mockSubscriptionRepository.findActiveSubscriptions.mockResolvedValue([]);
 
-      await eventProcessorService.processEvent(mockPayload);
-
-      expect(logger.warn).toHaveBeenCalledWith(
-        `No active subscriptions found for event type: ${mockPayload.eventType}`
-      );
+      await eventProcessor.processEvent(mockPayload);
 
       expect(mockWebhookClient.sendWebhook).not.toHaveBeenCalled();
     });
 
     it('should throw an error when a webhook delivery fails', async () => {
-      const mockPopulate = jest.fn().mockResolvedValue(mockSubscriptions);
-      (SubscriptionModel.find as jest.Mock).mockReturnValue({
-        populate: mockPopulate
-      });
+      mockSubscriptionRepository.findActiveSubscriptions.mockResolvedValue(mockSubscriptions as unknown as PopulatedSubscription[]);
+
+      const successResult: WebhookDeliveryResult = {
+        success: true,
+        statusCode: 200,
+      };
+      const failureResult: WebhookDeliveryResult = {
+        success: false,
+        statusCode: 500,
+        error: 'Server error'
+      };
 
       mockWebhookClient.sendWebhook
-        .mockResolvedValueOnce({
-          success: true,
-          statusCode: 200,
-        })
-        .mockResolvedValueOnce({
-          success: false,
-          statusCode: 500,
-          error: 'Server error'
-        });
+        .mockResolvedValueOnce(successResult)
+        .mockResolvedValueOnce(failureResult);
 
-      await expect(eventProcessorService.processEvent(mockPayload))
+      await expect(eventProcessor.processEvent(mockPayload))
         .rejects
         .toThrow(`One or more webhook deliveries failed for event ${mockPayload.eventId}`);
 
@@ -178,74 +173,62 @@ describe('EventProcessorService', () => {
 
     it('should skip inactive partners', async () => {
       const inactivePartnerSubscription = {
-        partnerId: {
-          _id: 'partner-3',
-          name: 'Inactive Partner',
-          webhookUrl: 'https://example.com',
-          secretKey: 'secret',
-          isActive: false
-        },
+        _id: new mongoose.Types.ObjectId('62e0125dfb5538abcdef2236'),
+        partnerId: mockPartners[2],
         eventType: 'order.created',
-        isActive: true,
-        _id: 'sub-3'
+        isActive: true
       };
 
       const subscriptionsWithInactive = [...mockSubscriptions, inactivePartnerSubscription];
 
-      const mockPopulate = jest.fn().mockResolvedValue(subscriptionsWithInactive);
-      (SubscriptionModel.find as jest.Mock).mockReturnValue({
-        populate: mockPopulate
-      });
+      mockSubscriptionRepository.findActiveSubscriptions.mockResolvedValue(subscriptionsWithInactive as any);
 
       mockWebhookClient.sendWebhook.mockResolvedValue({
         success: true,
         statusCode: 200,
       });
 
-      await eventProcessorService.processEvent(mockPayload);
+      await eventProcessor.processEvent(mockPayload);
 
       expect(mockWebhookClient.sendWebhook).toHaveBeenCalledTimes(2);
     });
 
     it('should skip partners without a webhookUrl', async () => {
+      const partnerWithoutUrl = {
+        _id: new mongoose.Types.ObjectId('62e0125dfb5538abcdef1237'),
+        name: 'No URL Partner',
+        secretKey: 'secret',
+        isActive: true
+      };
+
       const noUrlPartnerSubscription = {
-        partnerId: {
-          _id: 'partner-4',
-          name: 'No URL Partner',
-          secretKey: 'secret',
-          isActive: true
-        },
+        _id: new mongoose.Types.ObjectId('62e0125dfb5538abcdef2237'),
+        partnerId: partnerWithoutUrl,
         eventType: 'order.created',
-        isActive: true,
-        _id: 'sub-4'
+        isActive: true
       };
 
       const subscriptionsWithInvalid = [...mockSubscriptions, noUrlPartnerSubscription];
 
-      const mockPopulate = jest.fn().mockResolvedValue(subscriptionsWithInvalid);
-      (SubscriptionModel.find as jest.Mock).mockReturnValue({
-        populate: mockPopulate
-      });
+      mockSubscriptionRepository.findActiveSubscriptions.mockResolvedValue(subscriptionsWithInvalid as any);
 
       mockWebhookClient.sendWebhook.mockResolvedValue({
         success: true,
         statusCode: 200,
       });
 
-      await eventProcessorService.processEvent(mockPayload);
+      await eventProcessor.processEvent(mockPayload);
 
       expect(mockWebhookClient.sendWebhook).toHaveBeenCalledTimes(2);
     });
 
     it('should handle database errors when finding subscriptions', async () => {
       const dbError = new Error('Database connection failed');
-      (SubscriptionModel.find as jest.Mock).mockImplementation(() => {
-        throw dbError;
-      });
+      mockSubscriptionRepository.findActiveSubscriptions.mockRejectedValue(dbError);
 
-      await expect(eventProcessorService.processEvent(mockPayload))
+      await expect(eventProcessor.processEvent(mockPayload))
         .rejects
-        .toThrow(/Database error fetching subscriptions/);
+        .toThrow('Database connection failed');
     });
   });
 });

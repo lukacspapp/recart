@@ -1,11 +1,15 @@
 import { Router, Request, Response } from "express";
 import { BatchEventRequest } from "../types/event";
 import { asyncHandler } from "../middleware/asyncHandler";
-import { submitEventToQueue } from "../controllers/eventController";
 import { validateBatchEventRequest } from "../middleware/validators/eventRequestValidator";
 import { apiKeyAuth } from "../middleware/authMiddleware";
+import { container } from "../di/container";
+import { EventController } from "../controllers/eventController";
+import { TYPES } from "../types/inversify";
 
 export const router = Router();
+
+const eventController = container.get<EventController>(TYPES.EventController);
 
 router.get(
   '/health',
@@ -19,6 +23,6 @@ router.post(
   apiKeyAuth,
   validateBatchEventRequest,
   asyncHandler<BatchEventRequest>(async (req, res) => {
-    await submitEventToQueue(req, res);
+    await eventController.submitEventToQueue(req, res);
   })
-)
+);

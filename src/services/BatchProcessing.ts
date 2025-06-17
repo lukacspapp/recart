@@ -1,15 +1,17 @@
+import { injectable, inject } from 'inversify';
 import { Queue } from 'bullmq';
 import { logger } from '../utils/loggerUtils';
 import { generateUniqueId } from '../utils/generateUniqueId';
 import { EventBatch } from '../types/event';
 import { BatchProcessingResult, EventProcessingSuccessResult, EventProcessingFailedResult, BulkJobEntry } from '../types/batchProcessing';
+import { IBatchProcessor } from '../types/interfaces/IBatchProcessor';
+import { TYPES } from '../types/inversify';
 
-export class BatchProcessingService {
-  private queue: Queue;
-
-  constructor(queue: Queue) {
-    this.queue = queue;
-  }
+@injectable()
+export class BatchProcessor implements IBatchProcessor {
+  constructor(
+    @inject(TYPES.WebhookQueue) private readonly queue: Queue
+  ) { }
 
   public async processBatch(events: EventBatch): Promise<BatchProcessingResult> {
     const timestamp = new Date().toISOString();
@@ -22,18 +24,18 @@ export class BatchProcessingService {
       const eventId = generateUniqueId();
       eventIds.push(eventId);
 
-      const bulkJobEntry = BatchProcessingService.createBulkJobEntry(eventType, data, eventId, timestamp);
+      const bulkJobEntry = BatchProcessor.createBulkJobEntry(eventType, data, eventId, timestamp);
       bulkJobs.push(bulkJobEntry);
     }
 
     try {
       const jobResults = await this.queue.addBulk(bulkJobs);
 
-      return BatchProcessingService.createSuccessfulResponse(jobResults, events);
+      return BatchProcessor.createSuccessfulResponse(jobResults, events);
     } catch (error) {
       logger.error(`Failed to enqueue batch: ${error instanceof Error ? error.message : 'Unknown error'}`);
 
-      return BatchProcessingService.createErrorResponse(events, eventIds, error);
+      return BatchProcessor.createErrorResponse(events, eventIds, error);
     }
   }
 
@@ -88,5 +90,4 @@ export class BatchProcessingService {
       hasErrors: true
     };
   }
-
 }

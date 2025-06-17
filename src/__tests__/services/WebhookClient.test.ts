@@ -1,9 +1,12 @@
-import axios, { AxiosInstance, AxiosResponse, AxiosRequestHeaders } from 'axios';
+import { Container } from 'inversify';
 import mongoose from 'mongoose';
 import { WebhookClient } from '../../services/WebhookClient';
 import { EventPayloadData } from '../../types/event';
 import { WebhookClientConfig } from '../../types/webhookClient';
 import { generateSignature } from '../../utils/generateUniqueId';
+import { IHttpClient } from '../../types/interfaces/IHttpClient';
+import { TYPES } from '../../types/inversify';
+import axios from 'axios';
 
 jest.mock('../../utils/generateUniqueId', () => ({
   generateSignature: jest.fn().mockReturnValue('mocked-signature-123'),
@@ -12,40 +15,24 @@ jest.mock('../../utils/generateUniqueId', () => ({
 jest.mock('axios', () => {
   return {
     isAxiosError: jest.fn(),
-    create: jest.fn().mockReturnValue({
-      post: jest.fn(),
-    }),
   };
 });
 
 describe('WebhookClient', () => {
-  let mockAxios: jest.Mocked<AxiosInstance>;
+  let container: Container;
+  let mockHttpClient: jest.Mocked<IHttpClient>;
   let webhookClient: WebhookClient;
   let webhookConfig: WebhookClientConfig;
   let mockPartner: any;
   let eventData: EventPayloadData;
 
-  const createMockResponse = (status: number): Partial<AxiosResponse> => ({
-    status,
-    headers: {},
-    data: {},
-    statusText: status >= 200 && status < 300 ? 'OK' : 'Error',
-    config: {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Recart-Event-Id': 'event-123',
-        'X-Recart-Event-Type': 'order.created',
-        'X-Recart-Signature-256': 'mocked-signature-123',
-      } as unknown as AxiosRequestHeaders
-    },
-  });
-
   beforeEach(() => {
     jest.clearAllMocks();
 
-    mockAxios = {
+    mockHttpClient = {
       post: jest.fn(),
-    } as unknown as jest.Mocked<AxiosInstance>;
+      createRequestWithWebhookHeaders: jest.fn(),
+    } as jest.Mocked<IHttpClient>;
 
     webhookConfig = {
       maxAttempts: 3,
@@ -53,7 +40,12 @@ describe('WebhookClient', () => {
       requestTimeoutMs: 1000,
     };
 
-    webhookClient = new WebhookClient(webhookConfig, mockAxios);
+    container = new Container();
+    container.bind<WebhookClientConfig>(TYPES.WebhookConfig).toConstantValue(webhookConfig);
+    container.bind<IHttpClient>(TYPES.HttpClient).toConstantValue(mockHttpClient);
+    container.bind<WebhookClient>(WebhookClient).toSelf();
+
+    webhookClient = container.get<WebhookClient>(WebhookClient);
 
     mockPartner = {
       _id: new mongoose.Types.ObjectId('62e0125dfb5538abcdef1234'),
@@ -75,7 +67,13 @@ describe('WebhookClient', () => {
 
   describe('sendWebhook', () => {
     it('should successfully deliver webhook on first attempt', async () => {
-      mockAxios.post.mockResolvedValueOnce(createMockResponse(200));
+      mockHttpClient.createRequestWithWebhookHeaders.mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        data: {},
+        statusText: 'OK',
+        config: {} as any,
+      });
 
       const result = await webhookClient.sendWebhook(
         mockPartner,
@@ -89,17 +87,16 @@ describe('WebhookClient', () => {
         mockPartner.secretKey
       );
 
-      expect(mockAxios.post).toHaveBeenCalledTimes(1);
-      expect(mockAxios.post).toHaveBeenCalledWith(
+      expect(mockHttpClient.createRequestWithWebhookHeaders).toHaveBeenCalledTimes(1);
+      expect(mockHttpClient.createRequestWithWebhookHeaders).toHaveBeenCalledWith(
         mockPartner.webhookUrl,
         expect.stringContaining('order.created'),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'X-Recart-Event-Id': 'event-123',
-            'X-Recart-Event-Type': 'order.created',
-            'X-Recart-Signature-256': 'mocked-signature-123',
-          }),
-        })
+        {
+          eventId: 'event-123',
+          eventType: 'order.created',
+          signature: 'mocked-signature-123'
+        },
+        webhookConfig.requestTimeoutMs
       );
 
       expect(result).toEqual({
@@ -109,9 +106,15 @@ describe('WebhookClient', () => {
     });
 
     it('should retry on failed attempts and succeed eventually', async () => {
-      mockAxios.post
+      mockHttpClient.createRequestWithWebhookHeaders
         .mockRejectedValueOnce(new Error('Network error'))
-        .mockResolvedValueOnce(createMockResponse(200));
+        .mockResolvedValueOnce({
+          status: 200,
+          headers: {},
+          data: {},
+          statusText: 'OK',
+          config: {} as any,
+        });
 
       const result = await webhookClient.sendWebhook(
         mockPartner,
@@ -120,7 +123,7 @@ describe('WebhookClient', () => {
         'event-123'
       );
 
-      expect(mockAxios.post).toHaveBeenCalledTimes(2);
+      expect(mockHttpClient.createRequestWithWebhookHeaders).toHaveBeenCalledTimes(2);
 
       expect(result).toEqual({
         success: true,
@@ -136,7 +139,7 @@ describe('WebhookClient', () => {
         data: 'Server Error',
       };
 
-      mockAxios.post.mockRejectedValue(axiosError);
+      mockHttpClient.createRequestWithWebhookHeaders.mockRejectedValue(axiosError);
 
       const result = await webhookClient.sendWebhook(
         mockPartner,
@@ -145,7 +148,7 @@ describe('WebhookClient', () => {
         'event-123'
       );
 
-      expect(mockAxios.post).toHaveBeenCalledTimes(webhookConfig.maxAttempts);
+      expect(mockHttpClient.createRequestWithWebhookHeaders).toHaveBeenCalledTimes(webhookConfig.maxAttempts);
 
       expect(result).toEqual({
         success: false,
@@ -159,7 +162,7 @@ describe('WebhookClient', () => {
       timeoutError.__AXIOS_ERROR__ = true;
       timeoutError.code = 'ETIMEDOUT';
 
-      mockAxios.post.mockRejectedValue(timeoutError);
+      mockHttpClient.createRequestWithWebhookHeaders.mockRejectedValue(timeoutError);
 
       const result = await webhookClient.sendWebhook(
         mockPartner,
@@ -176,7 +179,13 @@ describe('WebhookClient', () => {
     });
 
     it('should handle non-2xx status codes as errors', async () => {
-      mockAxios.post.mockResolvedValue(createMockResponse(429));
+      mockHttpClient.createRequestWithWebhookHeaders.mockResolvedValue({
+        status: 429,
+        headers: {},
+        data: {},
+        statusText: 'Too Many Requests',
+        config: {} as any,
+      });
 
       const result = await webhookClient.sendWebhook(
         mockPartner,
@@ -185,7 +194,7 @@ describe('WebhookClient', () => {
         'event-123'
       );
 
-      expect(mockAxios.post).toHaveBeenCalledTimes(webhookConfig.maxAttempts);
+      expect(mockHttpClient.createRequestWithWebhookHeaders).toHaveBeenCalledTimes(webhookConfig.maxAttempts);
 
       expect(result).toEqual({
         success: false,
@@ -197,7 +206,7 @@ describe('WebhookClient', () => {
     it('should handle non-axios errors', async () => {
       const genericError = new Error('Something unexpected happened');
 
-      mockAxios.post.mockRejectedValue(genericError);
+      mockHttpClient.createRequestWithWebhookHeaders.mockRejectedValue(genericError);
 
       (axios.isAxiosError as unknown as jest.Mock).mockReturnValue(false);
 

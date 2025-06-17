@@ -1,21 +1,24 @@
-import SubscriptionModel from '../models/SubscriptionModel';
+import { injectable, inject } from 'inversify';
 import { EventJobPayload, EventPayloadData } from '../types/event';
-import { WebhookClient } from './WebhookClient';
 import { logger } from '../utils/loggerUtils';
 import { Partner } from '../types/partner';
 import { PopulatedSubscription } from '../types/subscriptions';
+import { IEventProcessor } from '../types/interfaces/IEventProcessor';
+import { IWebhookClient } from '../types/interfaces/IWebhookClient';
+import { ISubscriptionRepository } from '../types/interfaces/ISubscriptionRepository';
+import { TYPES } from '../types/inversify';
 
-export class EventProcessorService {
-  private webhookClient: WebhookClient;
-
-  constructor(webhookClient: WebhookClient) {
-    this.webhookClient = webhookClient;
-  }
+@injectable()
+export class EventProcessor implements IEventProcessor {
+  constructor(
+    @inject(TYPES.WebhookClient) private readonly webhookClient: IWebhookClient,
+    @inject(TYPES.SubscriptionRepository) private readonly subscriptionRepository: ISubscriptionRepository
+  ) { }
 
   public async processEvent(jobPayload: EventJobPayload): Promise<void> {
     const { eventId, eventType, data } = jobPayload;
 
-    const subscriptions = await this.findActiveSubscriptions(eventType);
+    const subscriptions = await this.subscriptionRepository.findActiveSubscriptions(eventType);
 
     if (!subscriptions.length) {
       logger.warn(`No active subscriptions found for event type: ${eventType}`);
@@ -23,19 +26,6 @@ export class EventProcessorService {
     }
 
     await this.notifySubscribers(subscriptions, eventType, data, eventId);
-  }
-
-  private async findActiveSubscriptions(eventType: string): Promise<PopulatedSubscription[]> {
-    try {
-      const existingSubscriptions = await SubscriptionModel.find({
-        eventType: eventType,
-        isActive: true,
-      }).populate<{ partnerId: Partner | null }>('partnerId');
-
-      return existingSubscriptions;
-    } catch (error) {
-      throw new Error(`Database error fetching subscriptions: ${JSON.stringify(error)}`);
-    }
   }
 
   private async notifySubscribers(

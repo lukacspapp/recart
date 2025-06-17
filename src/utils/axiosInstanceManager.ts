@@ -1,6 +1,9 @@
-import axios, { AxiosInstance } from 'axios';
+import { injectable } from 'inversify';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { logger } from './loggerUtils';
+import { HeaderMetaData } from '../types/webhookClient';
 
+@injectable()
 export class AxiosInstanceManager {
   private axiosInstance: AxiosInstance;
 
@@ -14,6 +17,50 @@ export class AxiosInstanceManager {
 
   public getInstance(): AxiosInstance {
     return this.axiosInstance;
+  }
+
+  public createRequestConfig(options: {
+    timeout?: number;
+    webhookMetadata?: HeaderMetaData;
+    customHeaders?: Record<string, string>;
+  } = {}): AxiosRequestConfig {
+    const { timeout, webhookMetadata, customHeaders } = options;
+
+    const config: AxiosRequestConfig = {};
+
+    if (timeout) {
+      config.timeout = timeout;
+    }
+
+    if (webhookMetadata) {
+      config.headers = this.createWebhookHeaders(webhookMetadata);
+    } else if (customHeaders) {
+      config.headers = customHeaders;
+    }
+
+    return config;
+  }
+
+  public async post<T>(
+    url: string,
+    data: T,
+    options: {
+      webhookMetadata?: HeaderMetaData;
+      customHeaders?: Record<string, string>;
+      timeout?: number;
+    } = {}
+  ): Promise<AxiosResponse<T>> {
+    const config = this.createRequestConfig(options);
+    return this.axiosInstance.post<T>(url, data, config);
+  }
+
+  private createWebhookHeaders(metadata: HeaderMetaData) {
+    return {
+      'Content-Type': 'application/json',
+      'X-Recart-Event-Id': metadata.eventId,
+      'X-Recart-Event-Type': metadata.eventType,
+      'X-Recart-Signature-256': metadata.signature,
+    };
   }
 
   private setupInterceptors(): void {

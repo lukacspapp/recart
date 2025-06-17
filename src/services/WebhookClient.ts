@@ -1,41 +1,45 @@
-import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+import { injectable, inject } from 'inversify';
+import axios from 'axios';
 import { generateSignature } from '../utils/generateUniqueId';
 import { EventPayloadData } from '../types/event';
-import { HeaderMetaData, WebhookClientConfig, WebhookDeliveryResult, WebhookErrorResult, WebhookSuccessResult } from '../types/webhookClient';
+import { WebhookClientConfig, WebhookDeliveryResult, WebhookErrorResult, WebhookSuccessResult } from '../types/webhookClient';
 import { Partner } from '../types/partner';
+import { IWebhookClient } from '../types/interfaces/IWebhookClient';
+import { IHttpClient } from '../types/interfaces/IHttpClient';
+import { TYPES } from '../types/inversify';
 
-export class WebhookClient {
-  private readonly config: WebhookClientConfig;
-  private readonly axios: AxiosInstance;
-
+@injectable()
+export class WebhookClient implements IWebhookClient {
   constructor(
-    config: WebhookClientConfig,
-    axios: AxiosInstance
-  ) {
-    this.config = config;
-    this.axios = axios;
-  }
+    @inject(TYPES.WebhookConfig) private readonly config: WebhookClientConfig,
+    @inject(TYPES.HttpClient) private readonly httpClient: IHttpClient
+  ) { }
 
   public async sendWebhook(partner: Partner, eventType: string, data: EventPayloadData, eventId: string): Promise<WebhookDeliveryResult> {
     let attempts = 0;
     const payload = { eventId, eventType, data };
     const requestBody = JSON.stringify(payload);
+
     const signature = generateSignature(requestBody, partner.secretKey);
+    const metadata = {
+      eventId,
+      eventType,
+      signature
+    }
 
     while (attempts < this.config.maxAttempts) {
       attempts++;
 
       try {
-        const { status } = await this.makeRequest(partner.webhookUrl, requestBody, {
-          eventId,
-          eventType,
-          signature
-        });
+        const { status } = await this.httpClient.createRequestWithWebhookHeaders(
+          partner.webhookUrl,
+          requestBody,
+          metadata,
+          this.config.requestTimeoutMs
+        );
 
         if (status >= 200 && status < 300) {
-          return WebhookClient.createSuccessResponse(
-            status,
-          );
+          return WebhookClient.createSuccessResponse(status);
         }
 
         if (attempts >= this.config.maxAttempts) {
@@ -62,15 +66,6 @@ export class WebhookClient {
       success: false,
       error: `Max retries reached for partner webhook.`
     };
-  }
-
-  private async makeRequest(url: string, body: string, metadata: HeaderMetaData) {
-    const requestConfig: AxiosRequestConfig = {
-      headers: this.createHeaders(metadata),
-      timeout: this.config.requestTimeoutMs
-    };
-
-    return this.axios.post(url, body, requestConfig);
   }
 
   private static createSuccessResponse(statusCode: number): WebhookSuccessResult {
@@ -111,18 +106,8 @@ export class WebhookClient {
     };
   }
 
-
   private async delay(attemptNumber: number): Promise<void> {
     const delayMs = this.config.retryDelayMs * Math.pow(2, attemptNumber - 1);
     return new Promise(resolve => setTimeout(resolve, delayMs));
-  }
-
-  private createHeaders(metadata: HeaderMetaData) {
-    return {
-      'Content-Type': 'application/json',
-      'X-Recart-Event-Id': metadata.eventId,
-      'X-Recart-Event-Type': metadata.eventType,
-      'X-Recart-Signature-256': metadata.signature,
-    };
   }
 }

@@ -1,8 +1,8 @@
 import { Job, Queue } from 'bullmq';
-import { BatchProcessingService } from '../../services/BatchProcessing';
 import { EventBatch } from '../../types/event';
 import { generateUniqueId } from '../../utils/generateUniqueId';
 import { logger } from '../../utils/loggerUtils';
+import { BatchProcessor } from '../../services/BatchProcessing';
 
 
 jest.mock('../../utils/loggerUtils', () => ({
@@ -18,7 +18,7 @@ jest.mock('../../utils/generateUniqueId', () => ({
 
 describe('BatchProcessingService', () => {
   let mockQueue: jest.Mocked<Queue>;
-  let batchProcessingService: BatchProcessingService;
+  let batchProcessingService: BatchProcessor;
   let sampleEvents: EventBatch;
 
   beforeEach(() => {
@@ -26,7 +26,7 @@ describe('BatchProcessingService', () => {
       addBulk: jest.fn(),
     } as unknown as jest.Mocked<Queue>;
 
-    batchProcessingService = new BatchProcessingService(mockQueue);
+    batchProcessingService = new BatchProcessor(mockQueue);
 
     sampleEvents = [
       {
