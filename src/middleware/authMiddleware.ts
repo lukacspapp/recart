@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import Partner from '../models/PartnerModels';
 import { logger } from '../utils/loggerUtils';
+import { compareApiKey } from '../utils/authUtils';
 
 export const apiKeyAuth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -14,6 +15,13 @@ export const apiKeyAuth = async (req: Request, res: Response, next: NextFunction
     const partner = await Partner.findOne({ secretKey: apiKey, isActive: true });
 
     if (!partner) {
+      res.status(401).json({ error: 'Invalid API key or inactive partner' });
+      return;
+    }
+
+    const validApiKey = compareApiKey(apiKey, partner.apiKey);
+
+    if (!validApiKey) {
       res.status(401).json({ error: 'Invalid API key or inactive partner' });
       return;
     }
